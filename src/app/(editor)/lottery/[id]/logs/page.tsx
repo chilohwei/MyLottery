@@ -89,7 +89,7 @@ export default async function LogsPage({
           >
             <ChevronLeft className="h-4 w-4" />
           </Link>
-          <Separator orientation="vertical" className="h-5" />
+          <Separator orientation="vertical" className="!self-center h-5" />
           <span className="font-semibold truncate max-w-[140px] sm:max-w-none">
             {typedLottery.title}
           </span>

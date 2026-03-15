@@ -24,6 +24,8 @@ interface LotteryViewProps {
   hideTitle?: boolean;
   /** Use real device safe-area insets instead of fixed phone-frame padding */
   safeArea?: boolean;
+  /** When provided, draw results are persisted to prize_logs via API */
+  lotteryId?: string;
 }
 
 export function LotteryView({
@@ -33,6 +35,7 @@ export function LotteryView({
   autoPlay = false,
   hideTitle = false,
   safeArea = false,
+  lotteryId,
 }: LotteryViewProps) {
   const padTop = safeArea ? "pt-[max(env(safe-area-inset-top,20px),20px)]" : "pt-[40px]";
   const padBottom = safeArea ? "pb-[max(env(safe-area-inset-bottom,16px),16px)]" : "pb-[28px]";
@@ -54,34 +57,29 @@ export function LotteryView({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const scopedConfettiRef = useRef<ScopedConfetti | null>(null);
-  const baseConfettiRef = useRef<ConfettiFn | null>(null);
-  const confettiCreateRef = useRef<((canvas?: HTMLCanvasElement, opts?: Record<string, unknown>) => ScopedConfetti) | null>(null);
-
-  const ensureConfetti = useCallback(async () => {
-    if (!baseConfettiRef.current || !confettiCreateRef.current) {
-      const mod = await import("canvas-confetti");
-      baseConfettiRef.current = mod.default as unknown as ConfettiFn;
-      confettiCreateRef.current = (mod.default as unknown as { create: (canvas?: HTMLCanvasElement, opts?: Record<string, unknown>) => ScopedConfetti }).create;
-    }
-  }, []);
+  const confettiRef = useRef<ConfettiFn | null>(null);
+  const confettiReadyRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    let cancelled = false;
+    import("canvas-confetti").then((mod) => {
+      if (cancelled) return;
+      const create = (mod.default as unknown as { create: (canvas?: HTMLCanvasElement, opts?: Record<string, unknown>) => ScopedConfetti }).create;
+      if (canvasRef.current) {
+        confettiRef.current = create(canvasRef.current, { resize: true, useWorker: true });
+      } else {
+        confettiRef.current = mod.default as unknown as ConfettiFn;
+      }
+      confettiReadyRef.current = true;
+    }).catch((err) => { console.error("load confetti failed", err); });
+    return () => {
+      cancelled = true;
+      mountedRef.current = false;
+      const fn = confettiRef.current as ScopedConfetti | null;
+      fn?.reset?.();
+    };
   }, []);
-
-  useEffect(() => {
-    if (canvasRef.current && !scopedConfettiRef.current) {
-      void ensureConfetti().then(() => {
-        if (!canvasRef.current || !confettiCreateRef.current) return;
-        scopedConfettiRef.current = confettiCreateRef.current(canvasRef.current, { resize: true, useWorker: true });
-      }).catch((error) => {
-        console.error("load confetti failed", error);
-      });
-    }
-    return () => { scopedConfettiRef.current?.reset(); };
-  }, [ensureConfetti]);
 
   const recipientPhoto = config.recipientPhoto || "";
 
@@ -90,13 +88,9 @@ export function LotteryView({
   };
 
   const fireConfetti = useCallback((opts?: Record<string, unknown>) => {
-    void ensureConfetti().then(() => {
-      const fire = scopedConfettiRef.current ?? baseConfettiRef.current;
-      fire?.({ particleCount: 100, spread: 70, origin: { y: 0.5 }, colors: CONFETTI_COLORS, ...opts } as Record<string, unknown>);
-    }).catch((error) => {
-      console.error("fire confetti failed", error);
-    });
-  }, [ensureConfetti]);
+    if (!confettiReadyRef.current || !confettiRef.current) return;
+    confettiRef.current({ particleCount: 100, spread: 70, origin: { y: 0.5 }, colors: CONFETTI_COLORS, ...opts } as Record<string, unknown>);
+  }, []);
 
   const typeSlide = useCallback((text: string, onDone: () => void) => {
     let idx = 0;
@@ -181,7 +175,20 @@ export function LotteryView({
     if (!opts?.inline) {
       setPhase("result");
     }
-  }, [fireConfetti]);
+    if (lotteryId) {
+      fetch(`/api/lottery/${lotteryId}/draw`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prize: gift.id,
+          prize_text: gift.text,
+          prize_icon: gift.icon,
+        }),
+      }).catch((err) => {
+        console.error("Failed to log prize", err);
+      });
+    }
+  }, [fireConfetti, lotteryId]);
 
   return (
     <div className="flex flex-col h-full gradient-warm relative overflow-hidden">

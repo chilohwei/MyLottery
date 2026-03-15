@@ -44,6 +44,7 @@ export function PublicLotteryClient({ lottery }: { lottery: Lottery }) {
           autoPlay
           hideTitle
           safeArea
+          lotteryId={lottery.id}
         />
       </div>
 
@@ -59,6 +60,7 @@ export function PublicLotteryClient({ lottery }: { lottery: Lottery }) {
               interactive
               autoPlay
               hideTitle
+              lotteryId={lottery.id}
             />
           </div>
           {/* Home indicator */}
