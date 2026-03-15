@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF7E7E"/>
+      <stop offset="100%" stop-color="#C8507A"/>
+    </linearGradient>
+    <radialGradient id="shine" cx="35%" cy="25%" r="65%">
+      <stop offset="0%" stop-color="#FFA5A0" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#FF7E7E" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="box" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#EDE3EA"/>
+    </linearGradient>
+    <linearGradient id="lid" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F3EBF0"/>
+    </linearGradient>
+    <linearGradient id="rib" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF8A80"/>
+      <stop offset="100%" stop-color="#D9534F"/>
+    </linearGradient>
+    <linearGradient id="gem" x1="30%" y1="0%" x2="70%" y2="100%">
+      <stop offset="0%" stop-color="#FFE57F"/>
+      <stop offset="50%" stop-color="#FFC107"/>
+      <stop offset="100%" stop-color="#FFA000"/>
+    </linearGradient>
+  </defs>
+
+  <!-- BG: squircle -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="112" fill="url(#shine)"/>
+
+  <!-- Box body -->
+  <rect x="146" y="272" width="220" height="148" rx="22" fill="url(#box)"/>
+  <!-- Vertical ribbon -->
+  <rect x="240" y="272" width="32" height="148" rx="2" fill="url(#rib)" opacity="0.8"/>
+
+  <!-- Lid (shifted up + slight tilt to imply opening) -->
+  <g transform="rotate(-5, 256, 252)">
+    <rect x="132" y="236" width="248" height="42" rx="14" fill="url(#lid)"/>
+    <!-- Ribbon cross on lid -->
+    <rect x="236" y="236" width="40" height="42" rx="3" fill="url(#rib)" opacity="0.8"/>
+    <!-- Bow loops -->
+    <ellipse cx="237" cy="232" rx="20" ry="14" fill="url(#rib)" opacity="0.85" transform="rotate(-20, 237, 232)"/>
+    <ellipse cx="275" cy="232" rx="20" ry="14" fill="url(#rib)" opacity="0.85" transform="rotate(20, 275, 232)"/>
+    <circle cx="256" cy="236" r="9" fill="url(#rib)"/>
+  </g>
+
+  <!-- Star rising from box -->
+  <path d="M256 92 L270 158 L336 172 L270 186 L256 252 L242 186 L176 172 L242 158 Z"
+        fill="url(#gem)"/>
+  <path d="M256 118 L266 160 L308 172 L266 184 L256 226 L246 184 L204 172 L246 160 Z"
+        fill="white" opacity="0.3"/>
+
+  <!-- Small accent sparkles (only 2, bold enough for tiny sizes) -->
+  <path d="M168 130 L172 118 L176 130 L188 134 L176 138 L172 150 L168 138 L156 134 Z" fill="white" opacity="0.75"/>
+  <path d="M344 112 L347 104 L350 112 L358 115 L350 118 L347 126 L344 118 L336 115 Z" fill="white" opacity="0.6"/>
+</svg>

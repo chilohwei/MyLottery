@@ -21,6 +21,7 @@
 # misc
 .DS_Store
 *.pem
+Thumbs.db
 
 # debug
 npm-debug.log*
@@ -35,6 +36,24 @@ yarn-error.log*
 # vercel
 .vercel
 
+# cloudflare
+.open-next
+.dev.vars
+.wrangler
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# performance / profiling temp files
+.perf-*
+
+# OS metadata
+._*
