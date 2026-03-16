@@ -8,6 +8,7 @@ interface SlotMachineProps {
   gifts: Gift[];
   allowRetry?: boolean;
   interactive?: boolean;
+  highContrastText?: boolean;
   onResult?: (gift: Gift, opts?: { inline?: boolean }) => void;
 }
 
@@ -17,7 +18,13 @@ const VISIBLE = 3;
 const VIEWPORT_H = ITEM_H * VISIBLE;
 const REEL_W = 100;
 
-export function SlotMachine({ gifts, allowRetry = false, interactive = false, onResult }: SlotMachineProps) {
+export function SlotMachine({
+  gifts,
+  allowRetry = false,
+  interactive = false,
+  highContrastText = false,
+  onResult,
+}: SlotMachineProps) {
   const [spinning, setSpinning] = useState(false);
   const [reelOffsets, setReelOffsets] = useState([0, 0, 0]);
   const [resultGift, setResultGift] = useState<Gift | null>(null);
@@ -69,7 +76,7 @@ export function SlotMachine({ gifts, allowRetry = false, interactive = false, on
   return (
     <div className="flex flex-col items-center select-none w-full max-w-[340px]">
       {gifts.length <= 2 ? (
-        <p className="text-xs text-foreground/55 mb-2">
+        <p className={`text-xs mb-2 ${highContrastText ? "text-white/75" : "text-foreground/55"}`}>
           当前奖品较少，建议至少设置 3 项以获得更完整体验
         </p>
       ) : null}
@@ -129,6 +136,7 @@ export function SlotMachine({ gifts, allowRetry = false, interactive = false, on
             <button
               type="button"
               className="mt-2 text-xs text-foreground/55 hover:text-foreground/75 transition-colors cursor-pointer"
+              style={{ touchAction: "manipulation" }}
               onClick={() => { setResultGift(null); }}
             >
               ↻ 重新抽取
@@ -148,6 +156,7 @@ export function SlotMachine({ gifts, allowRetry = false, interactive = false, on
           )}
           onClick={spin}
           disabled={!interactive || spinning}
+          style={{ touchAction: "manipulation" }}
         >
           {spinning ? "✨ 抽奖进行中..." : "🎰 开始抽奖"}
         </button>

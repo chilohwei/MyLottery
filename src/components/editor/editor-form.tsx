@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useDeferredValue } from "react";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -11,6 +11,10 @@ import {
   Check,
   Loader2,
   ExternalLink,
+  Eye,
+  QrCode,
+  Share2,
+  Sparkles,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -30,7 +34,7 @@ import { GiftEditor } from "@/components/editor/gift-editor";
 import { PhotoUpload } from "@/components/editor/photo-upload";
 import { LotteryPreview } from "@/components/editor/lottery-preview";
 import type { Lottery, LotteryConfig } from "@/types/lottery";
-import { GAME_TYPES } from "@/types/lottery";
+import { DEFAULT_RECIPIENT_AVATAR, GAME_TYPES, LOTTERY_THEMES } from "@/types/lottery";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -75,10 +79,11 @@ function migrateConfig(raw: Record<string, unknown>): LotteryConfig {
 
   return {
     gameType: (c.gameType as LotteryConfig["gameType"]) ?? "wheel",
+    theme: (c.theme as LotteryConfig["theme"]) ?? "warm",
     slides,
     senderName: (c.senderName as string) ?? (c.contactPerson as string) ?? "",
     senderAvatar: (c.senderAvatar as string) ?? (c.avatarUrl as string) ?? "",
-    recipientPhoto: (c.recipientPhoto as string) ?? "",
+    recipientPhoto: (c.recipientPhoto as string) || DEFAULT_RECIPIENT_AVATAR,
     gifts,
     showPrizeList: (c.showPrizeList as boolean) ?? false,
     allowRetry: (c.allowRetry as boolean) ?? false,
@@ -95,6 +100,12 @@ export function EditorForm({ lottery }: EditorFormProps) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [publishing, setPublishing] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  const [reopeningShare, setReopeningShare] = useState(false);
+  const [qrEmphasized, setQrEmphasized] = useState(false);
+  const deferredConfig = useDeferredValue(config);
+  const deferredTitle = useDeferredValue(title);
+  const qrCardRef = useRef<HTMLDivElement>(null);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestDataRef = useRef({ title, config });
@@ -193,13 +204,127 @@ export function EditorForm({ lottery }: EditorFormProps) {
         document.body.removeChild(textarea);
       }
       toast.success("链接已复制");
+      setQrEmphasized(true);
+      qrCardRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      window.setTimeout(() => setQrEmphasized(false), 1200);
     } catch {
       toast.error("复制失败，请手动复制链接");
     }
   };
 
+  const handleSystemShare = async () => {
+    try {
+      if (!navigator.share) {
+        throw new Error("Web Share API not supported");
+      }
+      await navigator.share({
+        title: title || "我的抽奖活动",
+        text: "来参与我的抽奖活动",
+        url: shareUrl,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === "Web Share API not supported") {
+        await handleCopyLink();
+        toast.info("当前设备不支持系统分享，已为你复制链接");
+        return;
+      }
+      console.error("system share failed", error);
+    }
+  };
+
+  const handleDownloadQr = () => {
+    if (!qrDataUrl) {
+      const error = new Error("QR code is empty");
+      console.error(error);
+      toast.error("二维码尚未生成完成");
+      return;
+    }
+    const link = document.createElement("a");
+    link.href = qrDataUrl;
+    link.download = `lottery-share-${lottery.slug}.png`;
+    link.click();
+  };
+
+  const handleCopyQrImage = async () => {
+    try {
+      if (!qrDataUrl) {
+        throw new Error("QR code is empty");
+      }
+      if (!navigator.clipboard || typeof window.ClipboardItem === "undefined") {
+        throw new Error("Clipboard image copy is not supported");
+      }
+      const res = await fetch(qrDataUrl);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch QR image: ${res.status}`);
+      }
+      const blob = await res.blob();
+      await navigator.clipboard.write([new window.ClipboardItem({ [blob.type]: blob })]);
+      toast.success("二维码图片已复制");
+    } catch (error) {
+      console.error("copy qr image failed", error);
+      toast.error("当前环境不支持复制图片，请使用下载");
+    }
+  };
+
+  const handleReopenShare = async () => {
+    if (reopeningShare) return;
+    setReopeningShare(true);
+    try {
+      const nextConfig: LotteryConfig = { ...config, shareMode: "public" };
+      const res = await fetch(`/api/lottery/${lottery.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, config: nextConfig }),
+      });
+      if (!res.ok) {
+        throw new Error("Reopen share failed");
+      }
+      setConfig(nextConfig);
+      toast.success("已开启分享");
+    } catch (error) {
+      console.error("reopen share failed", error);
+      toast.error("开启分享失败，请稍后重试");
+    } finally {
+      setReopeningShare(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showShareDialog) {
+      setQrDataUrl("");
+      setQrEmphasized(false);
+    }
+  }, [showShareDialog]);
+
+  useEffect(() => {
+    if (!showShareDialog || config.shareMode === "closed") return;
+    let cancelled = false;
+
+    import("qrcode")
+      .then(({ toDataURL }) =>
+        toDataURL(shareUrl, {
+          width: 220,
+          margin: 1,
+          errorCorrectionLevel: "M",
+        }),
+      )
+      .then((url) => {
+        if (!cancelled) setQrDataUrl(url);
+      })
+      .catch((error) => {
+        console.error("generate share qrcode failed", error);
+        toast.error("二维码生成失败，请稍后重试");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showShareDialog, shareUrl, config.shareMode]);
+
+  const [mobilePreview, setMobilePreview] = useState(false);
+
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-[100dvh] flex-col">
       {/* Top bar */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-3 sm:px-4">
         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -223,19 +348,25 @@ export function EditorForm({ lottery }: EditorFormProps) {
             )}
           />
         </div>
-        <UserButton />
+        <div className="flex items-center gap-2">
+          <UserButton />
+        </div>
       </header>
 
       {/* Body: left form + right preview */}
       <div className="flex flex-1 flex-col md:flex-row overflow-hidden">
         {/* Left panel — compact scrollable form */}
-        <div className="order-2 md:order-1 w-full md:w-[340px] shrink-0 md:border-r border-border bg-background overflow-auto">
+        <div className="w-full md:w-[340px] shrink-0 md:border-r border-border bg-background overflow-auto flex-1 md:flex-none pb-20 md:pb-4">
           <div className="px-4 py-4 space-y-4">
             {/* Recipient photo */}
             <section className="space-y-2 rounded-xl border border-border/70 bg-muted/20 p-3">
               <SectionLabel>TA 的照片 <OptionalTag /></SectionLabel>
               <div className="flex items-center gap-3">
-                <PhotoUpload value={config.recipientPhoto} onChange={(v) => updateConfig("recipientPhoto", v)} compact />
+                <PhotoUpload
+                  value={config.recipientPhoto}
+                  onChange={(v) => updateConfig("recipientPhoto", v || DEFAULT_RECIPIENT_AVATAR)}
+                  compact
+                />
                 <p className="text-xs text-muted-foreground leading-relaxed">上传对方照片<br />让开场更有仪式感</p>
               </div>
             </section>
@@ -257,6 +388,22 @@ export function EditorForm({ lottery }: EditorFormProps) {
                 {GAME_TYPES.map((gt) => (
                   <option key={gt.value} value={gt.value}>
                     {gt.icon} {gt.label} — {gt.desc}
+                  </option>
+                ))}
+              </select>
+            </section>
+
+            {/* Theme */}
+            <section className="space-y-2 rounded-xl border border-border/70 bg-muted/20 p-3">
+              <SectionLabel>主题</SectionLabel>
+              <select
+                value={config.theme}
+                onChange={(e) => updateConfig("theme", e.target.value as LotteryConfig["theme"])}
+                className="w-full h-9 rounded-md border border-border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+              >
+                {LOTTERY_THEMES.map((theme) => (
+                  <option key={theme.value} value={theme.value}>
+                    {theme.label} — {theme.desc}
                   </option>
                 ))}
               </select>
@@ -293,9 +440,9 @@ export function EditorForm({ lottery }: EditorFormProps) {
           </div>
         </div>
 
-        {/* Right preview */}
-        <div className="order-1 md:order-2 flex-1 overflow-auto md:overflow-hidden bg-muted/25">
-          <div className="h-full w-full max-w-[560px] mx-auto flex flex-col items-center gap-3 py-3 md:py-4 px-3 md:px-4">
+        {/* Right preview — desktop only */}
+        <div className="hidden md:flex flex-1 overflow-hidden bg-muted/25">
+          <div className="h-full w-full max-w-[560px] mx-auto flex flex-col items-center gap-3 py-4 px-4">
             <div className="w-full max-w-[380px] shrink-0 rounded-xl border border-border/70 bg-background/95 backdrop-blur-sm px-3 py-2 flex items-center justify-between gap-2 shadow-sm">
               <div className="flex items-center gap-2 min-w-0">
                 <StatusBadge published={status === "published"} />
@@ -319,93 +466,179 @@ export function EditorForm({ lottery }: EditorFormProps) {
                 </Button>
               </div>
             </div>
-            <div className="w-full flex-1 min-h-[380px] md:min-h-0 flex items-start justify-center pt-1 pb-4">
+            <div className="w-full flex-1 min-h-0 flex items-center justify-center pb-4">
               <PhonePreview>
-                <LotteryPreview config={config} title={title} />
+                <LotteryPreview config={deferredConfig} title={deferredTitle} />
               </PhonePreview>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Mobile bottom bar */}
+      <div className="md:hidden shrink-0 border-t border-border bg-background px-4 py-3 safe-area-pb">
+        <div className="h-4 mb-2 flex items-center">
+          <SaveIndicator status={saveStatus} />
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-10 text-sm gap-1.5 flex-1"
+            onClick={() => setMobilePreview(true)}
+          >
+            <Eye className="h-4 w-4" />
+            预览
+          </Button>
+          {status === "published" && config.shareMode !== "closed" && (
+            <Button variant="outline" size="sm" className="h-10 text-sm gap-1.5" onClick={handleCopyLink}>
+              <Copy className="h-4 w-4" />
+            </Button>
+          )}
+          <Button
+            size="sm"
+            className="h-10 text-sm gap-1.5 rounded-full flex-1 px-5"
+            onClick={handlePublish}
+            disabled={publishing || !canPublish}
+          >
+            <Send className="h-4 w-4" />
+            {publishing ? "发布中..." : status === "published" ? "更新" : "发布"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Mobile preview overlay */}
+      {mobilePreview && (
+        <div className="md:hidden fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <h3 className="text-sm font-medium">预览效果</h3>
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setMobilePreview(false)}>
+              关闭
+            </Button>
+          </div>
+          <div className="flex-1 overflow-auto flex items-center justify-center p-4">
+            <PhonePreview>
+              <LotteryPreview config={deferredConfig} title={deferredTitle} />
+            </PhonePreview>
+          </div>
+        </div>
+      )}
+
       {/* Share dialog */}
       <Dialog open={showShareDialog} onOpenChange={(open) => {
         if (!open) flushSave();
         setShowShareDialog(open);
       }}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle className="text-center text-lg">发布成功</DialogTitle>
+            <DialogTitle className="text-center">
+              <Sparkles className="inline h-4 w-4 text-primary mr-1.5 -translate-y-px" />
+              分享活动
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 pt-2 overflow-y-auto pr-1">
-            <p className="text-sm text-muted-foreground text-center">
-              {config.shareMode === "closed"
-                ? "当前分享已关闭。你可在编辑页开启后再发送链接。"
-                : config.shareMode === "passcode"
-                ? "活动已发布。参与者需输入访问口令后继续。"
-                : "活动已可访问。请复制链接发送给参与者。"}
-            </p>
-            {config.shareMode !== "closed" ? (
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2">
-                <span className="text-sm font-mono truncate flex-1">{shareUrl}</span>
-                <Button size="sm" variant="outline" className="shrink-0 gap-2 text-xs" onClick={handleCopyLink}>
-                  <Copy className="h-3 w-3" />
-                  复制
-                </Button>
-              </div>
-            ) : null}
-            <div className="rounded-lg border border-border bg-background p-3 space-y-2">
-              <p className="text-xs text-muted-foreground">分享权限设置</p>
-              <select
-                value={config.shareMode}
-                onChange={(e) => updateConfig("shareMode", e.target.value as LotteryConfig["shareMode"])}
-                className="w-full h-9 rounded-md border border-border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-ring cursor-pointer"
-              >
-                {SHARE_MODE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label} - {opt.desc}
-                  </option>
-                ))}
-              </select>
-              {config.shareMode === "passcode" ? (
-                <Input
-                  value={config.sharePasscode ?? ""}
-                  onChange={(e) => updateConfig("sharePasscode", e.target.value)}
-                  placeholder="请输入访问口令"
-                  className="h-9 text-sm"
-                />
-              ) : null}
-            </div>
-            <div className="rounded-lg border border-border bg-background p-3 space-y-2">
-              <p className="text-xs text-muted-foreground">活动信息</p>
-              <p className="text-sm"><span className="text-muted-foreground">名称：</span>{title || "未命名活动"}</p>
-              <p className="text-sm"><span className="text-muted-foreground">状态：</span>{status === "published" ? "已发布" : "草稿"}</p>
-              <p className="text-sm"><span className="text-muted-foreground">分享模式：</span>{getShareModeLabel(config.shareMode)}</p>
-              {config.shareMode === "passcode" ? (
-                <p className="text-sm"><span className="text-muted-foreground">访问口令：</span>{config.sharePasscode || "未设置"}</p>
-              ) : null}
-              <p className="text-sm">
-                <span className="text-muted-foreground">玩法：</span>
-                {GAME_TYPES.find((item) => item.value === config.gameType)?.label ?? "未选择"}
+
+          {config.shareMode === "closed" ? (
+            <div className="space-y-4 py-1">
+              <p className="text-sm text-muted-foreground text-center">
+                当前分享已关闭，可一键重新开启后立即发送链接。
               </p>
-              <p className="text-sm"><span className="text-muted-foreground">礼物数量：</span>{config.gifts.length}</p>
-              <p className="text-sm"><span className="text-muted-foreground">文案页数：</span>{config.slides.length}</p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 gap-2 text-xs" onClick={() => setShowShareDialog(false)}>
-                继续编辑
-              </Button>
-              <a
-                href={`/l/${lottery.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cn(buttonVariants(), "flex-1 gap-2 text-xs", config.shareMode === "closed" && "pointer-events-none opacity-50")}
+              <Button
+                className="w-full h-10 text-sm font-medium"
+                onClick={handleReopenShare}
+                disabled={reopeningShare}
               >
-                <ExternalLink className="h-3.5 w-3.5" />
-                查看效果
-              </a>
+                {reopeningShare ? "开启中..." : "重新开启分享"}
+              </Button>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-5">
+              <div
+                ref={qrCardRef}
+                className={cn(
+                  "flex items-start gap-5 rounded-xl border border-border bg-muted/15 p-5 transition-all duration-300",
+                  qrEmphasized && "ring-2 ring-primary/35 shadow-md",
+                )}
+              >
+                <div className="shrink-0 rounded-lg border border-border bg-white p-2">
+                  {qrDataUrl ? (
+                    <img src={qrDataUrl} alt="分享二维码" className="h-[140px] w-[140px]" />
+                  ) : (
+                    <div className="h-[140px] w-[140px] flex items-center justify-center text-xs text-muted-foreground">
+                      生成中...
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1 flex flex-col self-stretch gap-4">
+                  <div className="space-y-2">
+                    <p className="text-[11px] text-muted-foreground">分享链接</p>
+                    <div className="bg-muted/40 rounded-md px-2 py-1.5 border border-border/50 flex items-center gap-1.5">
+                      <p
+                        className="flex-1 min-w-0 text-xs font-mono text-foreground/80 whitespace-nowrap overflow-hidden text-ellipsis"
+                        title={shareUrl}
+                      >
+                        {shareUrl}
+                      </p>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                      className="h-7 w-7 shrink-0 active:scale-95"
+                        onClick={handleCopyLink}
+                        aria-label="复制链接"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[11px] text-muted-foreground">分享权限</p>
+                    <select
+                      value={config.shareMode}
+                      onChange={(e) => updateConfig("shareMode", e.target.value as LotteryConfig["shareMode"])}
+                      className="w-full h-9 rounded-md border border-border bg-background px-2.5 text-sm outline-none focus:ring-2 focus:ring-ring cursor-pointer"
+                    >
+                      {SHARE_MODE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label} - {opt.desc}
+                        </option>
+                      ))}
+                    </select>
+                    {config.shareMode === "passcode" ? (
+                      <Input
+                        value={config.sharePasscode ?? ""}
+                        onChange={(e) => updateConfig("sharePasscode", e.target.value)}
+                        placeholder="请输入访问口令"
+                        className="h-9 text-sm"
+                      />
+                    ) : null}
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 text-xs active:scale-95"
+                      onClick={handleCopyQrImage}
+                      disabled={!qrDataUrl}
+                    >
+                      <Copy className="h-3 w-3" />
+                      复制二维码
+                    </Button>
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs active:scale-95" onClick={handleDownloadQr} disabled={!qrDataUrl}>
+                      <QrCode className="h-3 w-3" />
+                      下载二维码
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <Button variant="outline" className="w-full h-10 gap-1.5 text-sm font-medium active:scale-[0.99]" onClick={handleSystemShare}>
+                <Share2 className="h-3.5 w-3.5" />
+                发送给好友
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

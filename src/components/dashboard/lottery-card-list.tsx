@@ -13,6 +13,7 @@ import {
   Eye,
   Trophy,
   BarChart3,
+  Link2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { GAME_TYPES, type Lottery } from "@/types/lottery";
+import { copyToClipboard } from "@/components/shared/copy-link-button";
+import { DEFAULT_RECIPIENT_AVATAR, GAME_TYPES, type Lottery } from "@/types/lottery";
 
 const ACCENT_GRADIENTS = [
   "linear-gradient(135deg, #fed6e3, #f5e6cc)",
@@ -72,7 +74,7 @@ export function LotteryCardList({ lotteries, drawCounts }: LotteryCardListProps)
       <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]">
         {lotteries.map((lottery, i) => {
           const giftCount = lottery.config.gifts?.length ?? 0;
-          const recipientPhoto = lottery.config.recipientPhoto ?? "";
+          const recipientPhoto = lottery.config.recipientPhoto || DEFAULT_RECIPIENT_AVATAR;
           const isPublished = lottery.status === "published";
           const gameType = GAME_TYPES.find((item) => item.value === lottery.config.gameType);
           const gradient = ACCENT_GRADIENTS[i % ACCENT_GRADIENTS.length];
@@ -80,16 +82,14 @@ export function LotteryCardList({ lotteries, drawCounts }: LotteryCardListProps)
           return (
             <div
               key={lottery.id}
-              className="group rounded-2xl bg-card border border-border overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5"
+              className="interactive-surface group rounded-2xl bg-card border border-border overflow-hidden"
             >
               <div className="relative h-24 overflow-hidden" style={{ background: gradient }}>
-                {recipientPhoto ? (
-                  <img
-                    src={recipientPhoto}
-                    alt=""
-                    className="absolute inset-0 h-full w-full object-cover opacity-35"
-                  />
-                ) : null}
+                <img
+                  src={recipientPhoto}
+                  alt=""
+                  className="absolute inset-0 h-full w-full object-cover opacity-35"
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent" />
                 <div className="absolute inset-x-3 top-2.5 flex items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-1 rounded-full border border-white/50 bg-white/80 px-2.5 py-1 text-xs text-foreground font-medium">
@@ -139,42 +139,40 @@ export function LotteryCardList({ lotteries, drawCounts }: LotteryCardListProps)
                 <div className="flex items-center gap-2 pt-2 border-t border-border">
                   <Link
                     href={`/lottery/${lottery.id}/edit`}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground hover:bg-muted transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground px-3 py-1.5 text-xs font-medium hover:bg-primary/90 active:scale-[0.98] transition-[background-color,transform] cursor-pointer"
                   >
-                    <Pencil className="h-3.5 w-3.5" />
-                    继续编辑
+                    <Pencil className="h-3 w-3" />
+                    编辑
                   </Link>
-
                   {isPublished && (
-                    <a
-                      href={`/l/${lottery.slug}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground hover:bg-muted transition-colors cursor-pointer"
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted active:scale-[0.98] transition-[background-color,transform] cursor-pointer"
+                      onClick={() => {
+                        const url = `${window.location.origin}/l/${lottery.slug}`;
+                        copyToClipboard(url).then(() => toast.success("链接已复制")).catch(() => toast.error("复制失败"));
+                      }}
                     >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      预览页面
-                    </a>
+                      <Link2 className="h-3 w-3" />
+                      复制链接
+                    </button>
                   )}
-
-                  <Link
-                    href={`/lottery/${lottery.id}/logs`}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground hover:bg-muted transition-colors cursor-pointer"
-                  >
-                    <BarChart3 className="h-3.5 w-3.5" />
-                    查看数据
-                  </Link>
-
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={<button type="button" />}
-                      className="inline-flex items-center justify-center h-7 w-7 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors ml-auto cursor-pointer"
-                      onClick={() => setDeleteTarget(lottery)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">删除</TooltipContent>
-                  </Tooltip>
+                  <div className="flex items-center gap-0.5 ml-auto">
+                    <IconAction href={`/lottery/${lottery.id}/logs?from=dashboard`} icon={<BarChart3 className="h-3.5 w-3.5" />} label="数据" />
+                    {isPublished && (
+                      <IconAction href={`/l/${lottery.slug}`} icon={<ExternalLink className="h-3.5 w-3.5" />} label="预览" external />
+                    )}
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={<button type="button" />}
+                        className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 active:scale-[0.95] transition-[color,background-color,transform] cursor-pointer"
+                        onClick={() => setDeleteTarget(lottery)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">删除</TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
               </div>
             </div>
@@ -205,5 +203,38 @@ export function LotteryCardList({ lotteries, drawCounts }: LotteryCardListProps)
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function IconAction({
+  href,
+  icon,
+  label,
+  external,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  external?: boolean;
+}) {
+  const cls =
+    "inline-flex items-center justify-center h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted active:scale-[0.95] transition-[color,background-color,transform] cursor-pointer";
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          external ? (
+            <a href={href} target="_blank" rel="noopener noreferrer" />
+          ) : (
+            <Link href={href} />
+          )
+        }
+        className={cls}
+      >
+        {icon}
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   );
 }

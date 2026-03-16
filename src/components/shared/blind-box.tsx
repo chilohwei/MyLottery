@@ -9,10 +9,18 @@ interface BlindBoxProps {
   showPrizeList?: boolean;
   allowRetry?: boolean;
   interactive?: boolean;
+  highContrastText?: boolean;
   onResult?: (gift: Gift, opts?: { inline?: boolean }) => void;
 }
 
-export function BlindBox({ gifts, showPrizeList = true, allowRetry = false, interactive = false, onResult }: BlindBoxProps) {
+export function BlindBox({
+  gifts,
+  showPrizeList = true,
+  allowRetry = false,
+  interactive = false,
+  highContrastText = false,
+  onResult,
+}: BlindBoxProps) {
   const [state, setState] = useState<"idle" | "shaking" | "opened">("idle");
   const [winGift, setWinGift] = useState<Gift | null>(null);
   const onResultRef = useRef(onResult);
@@ -97,11 +105,11 @@ export function BlindBox({ gifts, showPrizeList = true, allowRetry = false, inte
       </div>
 
       {state === "opened" && winGift ? (
-        <p className="text-sm text-amber-700 mt-3 font-semibold animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <p className={`text-sm mt-3 font-semibold animate-in fade-in slide-in-from-bottom-2 duration-500 ${highContrastText ? "text-amber-200" : "text-amber-700"}`}>
           🎉 恭喜获得「{winGift.text}」
         </p>
       ) : (
-        <p className="text-sm text-foreground/60 mt-3 font-medium">
+        <p className={`text-sm mt-3 font-medium ${highContrastText ? "text-white/85" : "text-foreground/60"}`}>
           {state === "idle"
             ? gifts.length === 1
               ? "📦 点击开启奖品"

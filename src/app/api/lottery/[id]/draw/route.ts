@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { DEFAULT_RECIPIENT_AVATAR } from "@/types/lottery";
 
 export async function POST(
   req: NextRequest,
@@ -8,15 +9,13 @@ export async function POST(
   const { id } = await params;
   const body = await req.json();
 
-  const { prize, prize_text, prize_icon } = body as {
+  const { prize } = body as {
     prize: string;
-    prize_text: string;
-    prize_icon: string;
   };
 
-  if (!prize || !prize_text) {
+  if (!prize) {
     return NextResponse.json(
-      { error: "prize and prize_text are required" },
+      { error: "prize is required" },
       { status: 400 },
     );
   }
@@ -36,30 +35,57 @@ export async function POST(
 
   const supabase = createServerClient();
 
-  const { error: verifyErr } = await supabase
+  const { data: lottery, error: verifyErr } = await supabase
     .from("lotteries")
-    .select("id")
+    .select("config")
     .eq("id", id)
     .eq("status", "published")
     .single();
 
-  if (verifyErr) {
+  if (verifyErr || !lottery) {
     return NextResponse.json(
       { error: "Lottery not found or not published" },
       { status: 404 },
     );
   }
 
+  const config = lottery.config as Record<string, unknown>;
+  const shareMode = (config.shareMode as string | undefined) ?? "public";
+  if (shareMode === "closed") {
+    return NextResponse.json(
+      { error: "Lottery sharing is closed" },
+      { status: 403 },
+    );
+  }
+
+  const gifts = Array.isArray(config.gifts)
+    ? (config.gifts as Array<{ id?: string; text?: string; icon?: string }>)
+    : [];
+  const matchedGift = gifts.find((gift) => gift.id === prize);
+  if (!matchedGift?.id || !matchedGift.text) {
+    return NextResponse.json(
+      { error: "Invalid prize" },
+      { status: 400 },
+    );
+  }
+
+  const snapshot = {
+    gameType: config.gameType ?? null,
+    gifts,
+    recipientPhoto: (config.recipientPhoto as string) || DEFAULT_RECIPIENT_AVATAR,
+  };
+
   const { error } = await supabase.from("prize_logs").insert({
     lottery_id: id,
     time: new Date().toISOString(),
-    prize,
-    prize_text,
-    prize_icon: prize_icon ?? "",
+    prize: matchedGift.id,
+    prize_text: matchedGift.text,
+    prize_icon: matchedGift.icon ?? "",
     notification: "",
     ip: ip ?? "",
     location: location ?? "",
     user_agent: userAgent ?? "",
+    snapshot,
   });
 
   if (error) {

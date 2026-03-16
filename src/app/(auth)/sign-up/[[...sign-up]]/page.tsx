@@ -4,6 +4,9 @@ export default function SignUpPage() {
   return (
     <SignUp
       appearance={{
+        layout: {
+          unsafe_disableDevelopmentModeWarnings: true,
+        },
         elements: {
           rootBox: "w-full max-w-md",
           logoBox: "hidden",

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { ClerkProvider } from "@clerk/nextjs";
 import { zhCN } from "@clerk/localizations";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import { HideClerkDevBanner } from "@/components/auth/hide-clerk-dev-banner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,6 +29,9 @@ export default function RootLayout({
     <ClerkProvider
       localization={zhCN}
       appearance={{
+        layout: {
+          unsafe_disableDevelopmentModeWarnings: true,
+        },
         elements: {
           logoBox: "hidden",
           footer: "hidden",
@@ -45,7 +50,13 @@ export default function RootLayout({
         className={`${GeistSans.variable} ${GeistMono.variable}`}
       >
         <body>
+          <HideClerkDevBanner />
           {children}
+          <Script
+            src="https://tongji.chiloh.com/script.js"
+            data-website-id="a8b312ff-5b37-4374-af4a-fb16defe1336"
+            strategy="afterInteractive"
+          />
         </body>
       </html>
     </ClerkProvider>

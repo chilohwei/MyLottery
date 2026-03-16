@@ -23,10 +23,12 @@ function easeOutCubic(t: number) {
 
 export function SpinWheel({ gifts, allowRetry = false, interactive = false, onResult }: SpinWheelProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const discRef = useRef<HTMLDivElement>(null);
   const [wheelSize, setWheelSize] = useState(0);
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const animRef = useRef<number>(0);
+  const rotationRef = useRef(0);
   const onResultRef = useRef(onResult);
   onResultRef.current = onResult;
 
@@ -49,6 +51,13 @@ export function SpinWheel({ gifts, allowRetry = false, interactive = false, onRe
     };
   }, []);
 
+  useEffect(() => {
+    rotationRef.current = rotation;
+    if (discRef.current) {
+      discRef.current.style.transform = `rotate(${rotation}deg)`;
+    }
+  }, [rotation]);
+
   const n = gifts.length;
   const sliceAngle = n > 0 ? 360 / n : 360;
 
@@ -68,24 +77,28 @@ export function SpinWheel({ gifts, allowRetry = false, interactive = false, onRe
     setSpinning(true);
 
     const winIndex = Math.floor(Math.random() * n);
-    const currentOffset = rotation % 360;
+    const baseRotation = rotationRef.current;
+    const currentOffset = baseRotation % 360;
     const targetOffset = 360 - (winIndex * sliceAngle + sliceAngle / 2);
     const delta = ((targetOffset - currentOffset) % 360 + 360) % 360;
     const totalSpin = 360 * (5 + Math.floor(Math.random() * 3)) + delta;
     const duration = 4500;
     const startTime = performance.now();
-    const baseRotation = rotation;
 
     const animate = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
       const eased = easeOutCubic(progress);
       const current = baseRotation + totalSpin * eased;
-      setRotation(current);
+      if (discRef.current) {
+        discRef.current.style.transform = `rotate(${current}deg)`;
+      }
 
       if (progress < 1) {
         animRef.current = requestAnimationFrame(animate);
       } else {
+        rotationRef.current = current;
+        setRotation(current);
         setSpinning(false);
         const gift = gifts[winIndex];
         if (gift) onResultRef.current?.(gift);
@@ -94,7 +107,7 @@ export function SpinWheel({ gifts, allowRetry = false, interactive = false, onRe
 
     cancelAnimationFrame(animRef.current);
     animRef.current = requestAnimationFrame(animate);
-  }, [interactive, spinning, n, sliceAngle, rotation, gifts]);
+  }, [interactive, spinning, n, sliceAngle, gifts]);
 
   if (n === 0) return null;
 
@@ -114,7 +127,7 @@ export function SpinWheel({ gifts, allowRetry = false, interactive = false, onRe
             <button
               type="button"
               className={cn(
-                "rounded-full px-6 py-2 text-sm font-bold transition-all shadow-lg cursor-pointer",
+                "rounded-full px-6 py-2 text-sm font-bold transition-all shadow-lg cursor-pointer touch-manipulation",
                 interactive && !spinning
                   ? "bg-gradient-to-b from-rose-400 to-rose-500 text-white hover:scale-105 active:scale-95"
                   : "bg-muted text-muted-foreground"
@@ -148,6 +161,7 @@ export function SpinWheel({ gifts, allowRetry = false, interactive = false, onRe
 
         {/* Rotating disc */}
         <div
+          ref={discRef}
           className="absolute inset-[5px] rounded-full overflow-hidden"
           style={{
             background: `conic-gradient(${conicGradient})`,
@@ -228,7 +242,7 @@ export function SpinWheel({ gifts, allowRetry = false, interactive = false, onRe
             <button
               type="button"
               className={cn(
-                "w-full h-full rounded-full flex items-center justify-center font-black tracking-wider transition-all",
+                "w-full h-full rounded-full flex items-center justify-center font-black tracking-wider transition-all touch-manipulation",
                 interactive && !spinning
                   ? "bg-gradient-to-b from-rose-400 to-rose-500 text-white shadow-xl shadow-rose-300/50 hover:scale-110 active:scale-95 cursor-pointer ring-[3px] ring-white/80"
                   : spinning

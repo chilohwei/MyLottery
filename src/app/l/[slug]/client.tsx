@@ -1,7 +1,7 @@
 "use client";
 
 import { LotteryView } from "@/components/shared/lottery-view";
-import type { Lottery, LotteryConfig } from "@/types/lottery";
+import { DEFAULT_RECIPIENT_AVATAR, type Lottery, type LotteryConfig } from "@/types/lottery";
 
 function migrateConfig(raw: Record<string, unknown>): LotteryConfig {
   const c = raw;
@@ -17,10 +17,11 @@ function migrateConfig(raw: Record<string, unknown>): LotteryConfig {
   }
   return {
     gameType: (c.gameType as LotteryConfig["gameType"]) ?? "wheel",
+    theme: (c.theme as LotteryConfig["theme"]) ?? "warm",
     slides,
     senderName: (c.senderName as string) ?? (c.contactPerson as string) ?? "",
     senderAvatar: (c.senderAvatar as string) ?? (c.avatarUrl as string) ?? "",
-    recipientPhoto: (c.recipientPhoto as string) ?? "",
+    recipientPhoto: (c.recipientPhoto as string) || DEFAULT_RECIPIENT_AVATAR,
     gifts: (c.gifts as LotteryConfig["gifts"]) ?? (c.prizes as LotteryConfig["gifts"]) ?? [],
     showPrizeList: (c.showPrizeList as boolean) ?? false,
     allowRetry: (c.allowRetry as boolean) ?? false,
@@ -60,6 +61,7 @@ export function PublicLotteryClient({ lottery }: { lottery: Lottery }) {
               interactive
               autoPlay
               hideTitle
+              safeArea
               lotteryId={lottery.id}
             />
           </div>

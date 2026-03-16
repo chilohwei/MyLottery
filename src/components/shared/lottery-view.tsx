@@ -3,11 +3,59 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
-import type { LotteryConfig, Gift } from "@/types/lottery";
+import { DEFAULT_RECIPIENT_AVATAR, type LotteryConfig, type Gift, type LotteryTheme } from "@/types/lottery";
 
 type Phase = "intro" | "slides" | "wheel" | "result";
 
-const CONFETTI_COLORS = ["#fed6e3", "#a8edea", "#ffeaa7", "#c0aede", "#f9a8d4"];
+const THEME_PRESETS: Record<
+  LotteryTheme,
+  { background: string; confettiColors: string[]; tone: "light" | "dark" }
+> = {
+  warm: {
+    background: "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
+    confettiColors: ["#fed6e3", "#a8edea", "#ffeaa7", "#c0aede", "#f9a8d4"],
+    tone: "light",
+  },
+  sunset: {
+    background: "linear-gradient(135deg, #f5e6cc 0%, #e8dff5 50%, #a8edea 100%)",
+    confettiColors: ["#ffd7a8", "#ffb4a2", "#e5b3ff", "#a8edea", "#ffeaa7"],
+    tone: "light",
+  },
+  ocean: {
+    background: "linear-gradient(145deg, #c7f0ff 0%, #d8fff4 45%, #e3f3ff 100%)",
+    confettiColors: ["#7dd3fc", "#67e8f9", "#86efac", "#c4b5fd", "#a8edea"],
+    tone: "light",
+  },
+  night: {
+    background: "linear-gradient(145deg, #0f172a 0%, #1e1b4b 45%, #312e81 100%)",
+    confettiColors: ["#f9a8d4", "#a5b4fc", "#67e8f9", "#fde68a", "#c4b5fd"],
+    tone: "dark",
+  },
+  forest: {
+    background: "linear-gradient(145deg, #0f2a22 0%, #123a2f 45%, #1d5a45 100%)",
+    confettiColors: ["#86efac", "#a7f3d0", "#67e8f9", "#fde68a", "#c4b5fd"],
+    tone: "dark",
+  },
+  candy: {
+    background: "linear-gradient(145deg, #ffd6f0 0%, #ffe7a3 45%, #c7f0ff 100%)",
+    confettiColors: ["#ff8ec7", "#ffd166", "#7dd3fc", "#c4b5fd", "#86efac"],
+    tone: "light",
+  },
+  minimal: {
+    background: "linear-gradient(145deg, #f6f8fb 0%, #eef2f7 50%, #e5ebf3 100%)",
+    confettiColors: ["#cbd5e1", "#94a3b8", "#c4b5fd", "#93c5fd", "#a7f3d0"],
+    tone: "light",
+  },
+  gold: {
+    background: "linear-gradient(145deg, #3a1f0f 0%, #7a4a1f 45%, #c08a3d 100%)",
+    confettiColors: ["#fde68a", "#f59e0b", "#fca5a5", "#c4b5fd", "#a7f3d0"],
+    tone: "dark",
+  },
+};
+const ENTRANCE_CONFETTI_X_ORIGINS = [
+  0.14, 0.22, 0.3, 0.38, 0.46, 0.54, 0.62, 0.7, 0.78, 0.86,
+];
+const ENTRANCE_CONFETTI_EXTRA_X_ORIGINS = [0.18, 0.34, 0.5, 0.66, 0.82];
 const SpinWheel = dynamic(() => import("@/components/shared/spin-wheel").then((m) => m.SpinWheel), { ssr: false });
 const SlotMachine = dynamic(() => import("@/components/shared/slot-machine").then((m) => m.SlotMachine), { ssr: false });
 const FlipCards = dynamic(() => import("@/components/shared/flip-cards").then((m) => m.FlipCards), { ssr: false });
@@ -26,6 +74,8 @@ interface LotteryViewProps {
   safeArea?: boolean;
   /** When provided, draw results are persisted to prize_logs via API */
   lotteryId?: string;
+  /** Force show replay control for preview/debug usage */
+  showReplayControl?: boolean;
 }
 
 export function LotteryView({
@@ -36,6 +86,7 @@ export function LotteryView({
   hideTitle = false,
   safeArea = false,
   lotteryId,
+  showReplayControl = false,
 }: LotteryViewProps) {
   const padTop = safeArea ? "pt-[max(env(safe-area-inset-top,20px),20px)]" : "pt-[40px]";
   const padBottom = safeArea ? "pb-[max(env(safe-area-inset-bottom,16px),16px)]" : "pb-[28px]";
@@ -46,6 +97,9 @@ export function LotteryView({
   const showPrizeList = config.showPrizeList ?? false;
   const allowRetry = config.allowRetry ?? false;
   const gameType = config.gameType ?? "wheel";
+  const theme = config.theme ?? "warm";
+  const themePreset = THEME_PRESETS[theme];
+  const isDarkTheme = themePreset.tone === "dark";
 
   const [phase, setPhase] = useState<Phase>(autoPlay ? "intro" : "wheel");
   const [showPhoto, setShowPhoto] = useState(!autoPlay);
@@ -59,6 +113,18 @@ export function LotteryView({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const confettiRef = useRef<ConfettiFn | null>(null);
   const confettiReadyRef = useRef(false);
+  const syncConfettiCanvasSize = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const targetW = Math.max(1, Math.floor(rect.width * dpr));
+    const targetH = Math.max(1, Math.floor(rect.height * dpr));
+    if (canvas.width !== targetW || canvas.height !== targetH) {
+      canvas.width = targetW;
+      canvas.height = targetH;
+    }
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -67,7 +133,11 @@ export function LotteryView({
       if (cancelled) return;
       const create = (mod.default as unknown as { create: (canvas?: HTMLCanvasElement, opts?: Record<string, unknown>) => ScopedConfetti }).create;
       if (canvasRef.current) {
+        syncConfettiCanvasSize();
         confettiRef.current = create(canvasRef.current, { resize: true, useWorker: true });
+        requestAnimationFrame(() => {
+          if (!cancelled) syncConfettiCanvasSize();
+        });
       } else {
         confettiRef.current = mod.default as unknown as ConfettiFn;
       }
@@ -79,18 +149,78 @@ export function LotteryView({
       const fn = confettiRef.current as ScopedConfetti | null;
       fn?.reset?.();
     };
-  }, []);
+  }, [syncConfettiCanvasSize]);
 
-  const recipientPhoto = config.recipientPhoto || "";
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const observer = new ResizeObserver(() => {
+      syncConfettiCanvasSize();
+    });
+    observer.observe(canvas);
+    syncConfettiCanvasSize();
+    return () => observer.disconnect();
+  }, [syncConfettiCanvasSize]);
+
+  const recipientPhoto = config.recipientPhoto || DEFAULT_RECIPIENT_AVATAR;
 
   const clearTimer = () => {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
   };
 
   const fireConfetti = useCallback((opts?: Record<string, unknown>) => {
-    if (!confettiReadyRef.current || !confettiRef.current) return;
-    confettiRef.current({ particleCount: 100, spread: 70, origin: { y: 0.5 }, colors: CONFETTI_COLORS, ...opts } as Record<string, unknown>);
-  }, []);
+    if (!mountedRef.current || !confettiReadyRef.current || !confettiRef.current) return;
+    confettiRef.current({
+      particleCount: 72,
+      spread: 62,
+      origin: { y: 0.5 },
+      colors: themePreset.confettiColors,
+      ...opts,
+    } as Record<string, unknown>);
+  }, [themePreset]);
+
+  const fireEntranceConfetti = useCallback(() => {
+    if (!mountedRef.current || !confettiReadyRef.current || !confettiRef.current) return;
+    ENTRANCE_CONFETTI_X_ORIGINS.forEach((originX, i) => {
+      window.setTimeout(() => {
+        if (!mountedRef.current) return;
+        fireConfetti({
+          particleCount: 18,
+          angle: 90,
+          spread: 44,
+          startVelocity: 12 + Math.random() * 7,
+          gravity: 0.95,
+          drift: (Math.random() - 0.5) * 0.6,
+          ticks: 320,
+          scalar: 0.95 + Math.random() * 0.25,
+          origin: {
+            x: originX,
+            y: -0.08 + Math.random() * 0.08,
+          },
+        });
+      }, i * 55);
+    });
+
+    ENTRANCE_CONFETTI_EXTRA_X_ORIGINS.forEach((originX, i) => {
+      window.setTimeout(() => {
+        if (!mountedRef.current) return;
+        fireConfetti({
+          particleCount: 12,
+          angle: 90,
+          spread: 36,
+          startVelocity: 11 + Math.random() * 5,
+          gravity: 0.98,
+          drift: (Math.random() - 0.5) * 0.5,
+          ticks: 300,
+          scalar: 0.9 + Math.random() * 0.2,
+          origin: {
+            x: originX,
+            y: -0.06 + Math.random() * 0.05,
+          },
+        });
+      }, 90 + i * 70);
+    });
+  }, [fireConfetti]);
 
   const typeSlide = useCallback((text: string, onDone: () => void) => {
     let idx = 0;
@@ -116,29 +246,29 @@ export function LotteryView({
   const runSlides = useCallback((idx: number) => {
     if (!mountedRef.current) return;
     if (idx >= slides.length) {
-      fireConfetti({ particleCount: 120, spread: 80 });
+      fireEntranceConfetti();
       timerRef.current = setTimeout(() => {
         if (!mountedRef.current) return;
         setPhase("wheel");
-      }, 800);
+      }, 1450);
       return;
     }
     setCurrentSlide(idx);
     typeSlide(slides[idx], () => runSlides(idx + 1));
-  }, [slides, typeSlide, fireConfetti]);
+  }, [slides, typeSlide, fireEntranceConfetti]);
 
   const transitionFromIntro = useCallback(() => {
     if (slides.length > 0) {
       setPhase("slides");
       runSlides(0);
     } else {
-      fireConfetti();
+      fireEntranceConfetti();
       timerRef.current = setTimeout(() => {
         if (!mountedRef.current) return;
         setPhase("wheel");
-      }, 800);
+      }, 1450);
     }
-  }, [slides, runSlides, fireConfetti]);
+  }, [slides, runSlides, fireEntranceConfetti]);
 
   const runIntro = useCallback(() => {
     clearTimer();
@@ -191,28 +321,34 @@ export function LotteryView({
   }, [fireConfetti, lotteryId]);
 
   return (
-    <div className="flex flex-col h-full gradient-warm relative overflow-hidden">
-      <canvas ref={canvasRef} className="absolute inset-0 z-[60] pointer-events-none" />
+    <div className="flex flex-col h-full relative overflow-hidden" style={{ background: themePreset.background }}>
+      <canvas ref={canvasRef} className="absolute inset-0 z-[60] h-full w-full pointer-events-none" />
 
       {/* ── INTRO ── */}
       <div className={cn(
         `absolute inset-0 z-30 flex flex-col items-center justify-center px-8 ${pad} transition-all duration-700`,
         phase === "intro" ? "opacity-100" : "opacity-0 pointer-events-none"
       )}>
-        {recipientPhoto ? (
-          <div className={cn("mb-5 transition-all duration-1000", showPhoto ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-6 scale-90")}>
-            <img src={recipientPhoto} alt="" loading="eager" decoding="async" className="w-24 h-24 rounded-full object-cover ring-4 ring-white/50 shadow-lg bg-white/50" />
-          </div>
-        ) : null}
+        <div className={cn("mb-5 transition-all duration-1000", showPhoto ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-6 scale-90")}>
+          <img src={recipientPhoto} alt="" loading="eager" decoding="async" className="w-24 h-24 rounded-full object-cover ring-4 ring-white/50 shadow-lg bg-white/50" />
+        </div>
         {!hideTitle ? (
-          <h1 className={cn("text-xl font-bold text-foreground text-center leading-snug transition-all duration-700", showTitle ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4")}>
+          <h1 className={cn(
+            "text-xl font-bold text-center leading-snug transition-all duration-700",
+            isDarkTheme ? "text-white" : "text-foreground",
+            showTitle ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+          )}>
             {title || "✨ 抽奖活动 ✨"}
           </h1>
         ) : null}
         {(config.senderName || config.senderAvatar) ? (
           <div className={cn("flex items-center gap-1.5 mt-2 transition-all duration-500", showTitle ? "opacity-100" : "opacity-0")}>
             {config.senderAvatar ? <img src={config.senderAvatar} alt="" loading="lazy" decoding="async" className="w-5 h-5 rounded-full object-cover ring-1 ring-white/40 bg-white/50" /> : null}
-            {config.senderName ? <p className="text-xs text-muted-foreground">来自 {config.senderName}</p> : null}
+            {config.senderName ? (
+              <p className={cn("text-xs", isDarkTheme ? "text-white/80" : "text-muted-foreground")}>
+                来自 {config.senderName}
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -222,10 +358,14 @@ export function LotteryView({
         `absolute inset-0 z-20 flex items-center justify-center px-10 ${pad} transition-all duration-500`,
         phase === "slides" ? "opacity-100" : "opacity-0 pointer-events-none"
       )}>
-        <p className={cn("text-base text-foreground/70 text-center leading-relaxed whitespace-pre-line transition-all duration-500", slideVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2")}>
+        <p className={cn(
+          "text-base text-center leading-relaxed whitespace-pre-line transition-all duration-500",
+          isDarkTheme ? "text-white/90" : "text-foreground/70",
+          slideVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+        )}>
           {typedText}
           {phase === "slides" && slideVisible && typedText.length < (slides[currentSlide]?.length ?? 0) && (
-            <span className="inline-block w-[2px] h-[1em] bg-foreground/40 align-middle ml-0.5 animate-pulse" />
+            <span className={cn("inline-block w-[2px] h-[1em] align-middle ml-0.5 animate-pulse", isDarkTheme ? "bg-white/60" : "bg-foreground/40")} />
           )}
         </p>
       </div>
@@ -238,8 +378,10 @@ export function LotteryView({
       )}>
         {!hideTitle ? (
           <div className="pt-2 pb-1 px-6 text-center shrink-0">
-            <h2 className="text-base font-bold tracking-tight text-foreground">{title || "抽奖活动"}</h2>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
+            <h2 className={cn("text-base font-bold tracking-tight", isDarkTheme ? "text-white" : "text-foreground")}>
+              {title || "抽奖活动"}
+            </h2>
+            <p className={cn("text-[10px] mt-0.5", isDarkTheme ? "text-white/75" : "text-muted-foreground")}>
               {config.senderName ? `来自 ${config.senderName}` : " "}
               {showPrizeList && hasGifts ? ` · 共 ${gifts.length} 项奖品` : ""}
             </p>
@@ -256,6 +398,7 @@ export function LotteryView({
               showPrizeList={showPrizeList}
               allowRetry={allowRetry}
               interactive={interactive && phase === "wheel"}
+              highContrastText={isDarkTheme}
               onResult={handleResult}
             />
           ) : (
@@ -293,9 +436,14 @@ export function LotteryView({
       )}
 
       {/* ── Replay ── */}
-      {interactive && allowRetry && (phase === "wheel" || phase === "result") && (
+      {interactive && (allowRetry || showReplayControl) && (phase === "wheel" || phase === "result") && (
         <button
-              className="absolute bottom-8 right-4 z-40 text-xs text-foreground/60 hover:text-foreground/80 transition-colors bg-white/70 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/80 shadow-sm cursor-pointer"
+              className={cn(
+                "absolute bottom-8 right-4 z-40 text-xs transition-colors backdrop-blur-sm rounded-full px-3 py-1.5 border shadow-sm cursor-pointer",
+                isDarkTheme
+                  ? "text-white/80 hover:text-white bg-black/25 border-white/30"
+                  : "text-foreground/50 hover:text-foreground/75 bg-white/45 border-white/60"
+              )}
           onClick={runIntro}
         >
           ↻ 重播
@@ -313,6 +461,7 @@ function GameRenderer({
   showPrizeList,
   allowRetry,
   interactive,
+  highContrastText,
   onResult,
 }: {
   gameType: LotteryConfig["gameType"];
@@ -320,17 +469,18 @@ function GameRenderer({
   showPrizeList: boolean;
   allowRetry: boolean;
   interactive: boolean;
+  highContrastText: boolean;
   onResult: ResultCallback;
 }) {
   switch (gameType) {
     case "slots":
-      return <SlotMachine gifts={gifts} allowRetry={allowRetry} interactive={interactive} onResult={onResult} />;
+      return <SlotMachine gifts={gifts} allowRetry={allowRetry} interactive={interactive} highContrastText={highContrastText} onResult={onResult} />;
     case "cards":
-      return <FlipCards gifts={gifts} showPrizeList={showPrizeList} allowRetry={allowRetry} interactive={interactive} onResult={onResult} />;
+      return <FlipCards gifts={gifts} showPrizeList={showPrizeList} allowRetry={allowRetry} interactive={interactive} highContrastText={highContrastText} onResult={onResult} />;
     case "blindbox":
-      return <BlindBox gifts={gifts} showPrizeList={showPrizeList} allowRetry={allowRetry} interactive={interactive} onResult={onResult} />;
+      return <BlindBox gifts={gifts} showPrizeList={showPrizeList} allowRetry={allowRetry} interactive={interactive} highContrastText={highContrastText} onResult={onResult} />;
     case "scratch":
-      return <ScratchCard gifts={gifts} showPrizeList={showPrizeList} allowRetry={allowRetry} interactive={interactive} onResult={onResult} />;
+      return <ScratchCard gifts={gifts} showPrizeList={showPrizeList} allowRetry={allowRetry} interactive={interactive} highContrastText={highContrastText} onResult={onResult} />;
     case "wheel":
     default:
       return <SpinWheel gifts={gifts} allowRetry={allowRetry} interactive={interactive} onResult={onResult} />;

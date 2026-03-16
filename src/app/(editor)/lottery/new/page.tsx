@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { nanoid } from "@/lib/nanoid";
+import { DEFAULT_RECIPIENT_AVATAR } from "@/types/lottery";
 
 export default async function NewLotteryPage() {
   const { userId } = await auth();
@@ -19,10 +20,11 @@ export default async function NewLotteryPage() {
       status: "draft",
       config: {
         gameType: "wheel",
+        theme: "warm",
         slides: ["这是我为你准备的一份小惊喜\n愿你收到时，刚好有一点开心"],
         senderName: "",
         senderAvatar: "",
-        recipientPhoto: "",
+        recipientPhoto: DEFAULT_RECIPIENT_AVATAR,
         gifts: [
           { id: crypto.randomUUID(), text: "影视会员年卡", icon: "🎬" },
           { id: crypto.randomUUID(), text: "电影票 2 张", icon: "🎟️" },

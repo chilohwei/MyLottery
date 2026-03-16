@@ -197,11 +197,39 @@
     textarea {
         cursor: text;
     }
+    a[href]:not([data-slot="button"]) {
+        transition: color 0.2s ease, opacity 0.2s ease;
+    }
+    a[href]:not([data-slot="button"]):hover {
+        opacity: 0.88;
+    }
+    [data-slot="button"]:active {
+        transform: translateY(1px) scale(0.98);
+    }
+    [data-slot="button"]:focus-visible {
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 28%, transparent);
+    }
+    [data-slot="input"],
+    textarea,
+    select {
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+    .interactive-surface {
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .interactive-surface:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(16, 24, 40, 0.08);
+    }
 }
 
 @media (hover: none) and (pointer: coarse) {
     .group\/button:hover {
         transform: none;
+    }
+    .interactive-surface:hover {
+        transform: none;
+        box-shadow: none;
     }
 }
 

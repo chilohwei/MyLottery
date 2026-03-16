@@ -84,6 +84,15 @@ export default async function DashboardPage() {
         icon={<Sparkles className="h-4 w-4" />}
         title="活动中心"
         subtitle={`当前共 ${items.length} 个活动，可继续编辑并分享`}
+        primaryAction={
+          <Link
+            href="/lottery/new"
+            className={cn(buttonVariants({ size: "sm" }), "rounded-full gap-2")}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            新建活动
+          </Link>
+        }
       />
       <LotteryCardList lotteries={items} drawCounts={drawCounts} />
     </div>

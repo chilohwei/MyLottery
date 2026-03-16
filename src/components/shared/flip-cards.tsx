@@ -20,10 +20,18 @@ interface FlipCardsProps {
   showPrizeList?: boolean;
   allowRetry?: boolean;
   interactive?: boolean;
+  highContrastText?: boolean;
   onResult?: (gift: Gift, opts?: { inline?: boolean }) => void;
 }
 
-export function FlipCards({ gifts, showPrizeList = true, allowRetry = false, interactive = false, onResult }: FlipCardsProps) {
+export function FlipCards({
+  gifts,
+  showPrizeList = true,
+  allowRetry = false,
+  interactive = false,
+  highContrastText = false,
+  onResult,
+}: FlipCardsProps) {
   const [flippedIdx, setFlippedIdx] = useState<number | null>(null);
   const [winGift, setWinGift] = useState<Gift | null>(null);
   const [shuffledGifts, setShuffledGifts] = useState<Gift[]>(() => [...gifts]);
@@ -70,7 +78,7 @@ export function FlipCards({ gifts, showPrizeList = true, allowRetry = false, int
 
   return (
     <div className="flex flex-col items-center select-none w-full px-4">
-      <p className="text-sm text-foreground/60 mb-4 font-medium">
+      <p className={`text-sm mb-4 font-medium ${highContrastText ? "text-white/85" : "text-foreground/60"}`}>
         {flippedIdx === null ? "🃏 请选择一张卡牌" : ""}
       </p>
 

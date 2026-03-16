@@ -6,11 +6,9 @@ import {
   Eye,
   Trophy,
   Clock,
-  Users,
   Send,
   Share2,
   TrendingUp,
-  Gift,
 } from "lucide-react";
 import { createServerClient } from "@/lib/supabase/server";
 import { UserButton } from "@clerk/nextjs";
@@ -20,17 +18,22 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { CopyLinkButton } from "@/components/shared/copy-link-button";
 import { GAME_TYPES, type Lottery, type PrizeLog } from "@/types/lottery";
+import { LogRecordList } from "./record-list";
 
 export default async function LogsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
   const { id } = await params;
+  const { from } = await searchParams;
   const supabase = createServerClient();
+  const backHref = from === "edit" ? `/lottery/${id}/edit` : "/dashboard";
 
   const { data: lottery, error: lotteryErr } = await supabase
     .from("lotteries")
@@ -49,9 +52,7 @@ export default async function LogsPage({
 
   const typedLottery = lottery as Lottery;
   const typedLogs = (logs ?? []) as PrizeLog[];
-  const winCount = typedLogs.filter((l) => l.prize !== "none").length;
   const isDraft = typedLottery.status === "draft";
-  const hasData = typedLottery.view_count > 0 || typedLogs.length > 0;
   const conversionRate =
     typedLottery.view_count > 0
       ? ((typedLogs.length / typedLottery.view_count) * 100).toFixed(1)
@@ -61,27 +62,12 @@ export default async function LogsPage({
     (g) => g.value === typedLottery.config.gameType,
   );
 
-  const prizeDistribution = typedLogs.reduce<
-    Record<string, { icon: string; text: string; count: number }>
-  >((acc, log) => {
-    const key = log.prize_text || log.prize;
-    if (!acc[key]) {
-      acc[key] = { icon: log.prize_icon, text: log.prize_text, count: 0 };
-    }
-    acc[key].count++;
-    return acc;
-  }, {});
-  const prizeStats = Object.values(prizeDistribution).sort(
-    (a, b) => b.count - a.count,
-  );
-
   return (
     <div className="flex h-screen flex-col">
-      {/* Top bar */}
       <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background/90 backdrop-blur-sm px-3 sm:px-5">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Link
-            href={`/lottery/${id}/edit`}
+            href={backHref}
             className={cn(
               buttonVariants({ variant: "ghost", size: "icon" }),
               "h-8 w-8 shrink-0",
@@ -101,42 +87,9 @@ export default async function LogsPage({
       </header>
 
       <main className="flex-1 overflow-auto bg-muted/15">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-          {/* Title row */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">
-                数据概览
-              </h1>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                {isDraft
-                  ? "当前为草稿，发布后开始统计"
-                  : `创建于 ${new Date(typedLottery.created_at).toLocaleDateString("zh-CN")}`}
-              </p>
-            </div>
-            {isDraft ? (
-              <Link
-                href={`/lottery/${id}/edit`}
-                className={cn(
-                  buttonVariants({ size: "sm" }),
-                  "rounded-full gap-2 shrink-0",
-                )}
-              >
-                <Send className="h-3.5 w-3.5" />
-                去发布
-              </Link>
-            ) : (
-              <Badge
-                variant="default"
-                className="bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0"
-              >
-                已发布
-              </Badge>
-            )}
-          </div>
-
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3">
             <StatCard
               icon={<Eye className="h-4 w-4" />}
               label="页面访问"
@@ -150,12 +103,6 @@ export default async function LogsPage({
               color="text-amber-600 bg-amber-50"
             />
             <StatCard
-              icon={<Users className="h-4 w-4" />}
-              label="中奖次数"
-              value={winCount}
-              color="text-violet-600 bg-violet-50"
-            />
-            <StatCard
               icon={<TrendingUp className="h-4 w-4" />}
               label="参与率"
               value={`${conversionRate}%`}
@@ -163,55 +110,11 @@ export default async function LogsPage({
             />
           </div>
 
-          {/* Share link bar */}
-          {!isDraft && (
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-              <Share2 className="h-4 w-4 text-muted-foreground shrink-0" />
-              <code className="text-xs sm:text-sm font-mono text-muted-foreground truncate flex-1">
-                {typeof window !== "undefined"
-                  ? `${window.location.origin}/l/${typedLottery.slug}`
-                  : `/l/${typedLottery.slug}`}
-              </code>
-              <CopyLinkButton
-                url={`/l/${typedLottery.slug}`}
-                variant="outline"
-                label="复制"
-                className="shrink-0"
-              />
-            </div>
-          )}
-
-          {/* Prize distribution */}
-          {prizeStats.length > 0 && (
-            <div className="space-y-3">
-              <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                <Gift className="h-3.5 w-3.5" />
-                奖品分布
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-                {prizeStats.map((p) => (
-                  <div
-                    key={p.text}
-                    className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5"
-                  >
-                    <span className="text-lg shrink-0">{p.icon}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium truncate">{p.text}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {p.count} 次
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Records list */}
+          {/* Records */}
           <div className="space-y-3">
             <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
               <Clock className="h-3.5 w-3.5" />
-              抽奖记录
+              参与记录
               {typedLogs.length > 0 && (
                 <span className="text-[11px] font-normal">
                   （共 {typedLogs.length} 条）
@@ -256,33 +159,7 @@ export default async function LogsPage({
                 />
               )
             ) : (
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="hidden sm:grid grid-cols-[1fr_auto_auto] gap-4 px-4 py-2.5 bg-muted/50 border-b border-border text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                  <span>奖品</span>
-                  <span className="w-28 text-right">来源</span>
-                  <span className="w-40 text-right">时间</span>
-                </div>
-                <div className="divide-y divide-border">
-                  {typedLogs.map((log) => (
-                    <div
-                      key={log.id}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors"
-                    >
-                      <span className="text-lg shrink-0">{log.prize_icon}</span>
-                      <span className="text-sm font-medium flex-1 min-w-0 truncate">
-                        {log.prize_text}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground hidden sm:block w-28 text-right truncate">
-                        {[log.location, log.ip].filter(Boolean).join(" · ") ||
-                          "—"}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground shrink-0 sm:w-40 text-right">
-                        {new Date(log.time).toLocaleString("zh-CN")}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <LogRecordList logs={typedLogs} />
             )}
           </div>
         </div>

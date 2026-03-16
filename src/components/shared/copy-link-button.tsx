@@ -4,7 +4,7 @@ import { Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
-function copyToClipboard(text: string): Promise<void> {
+export function copyToClipboard(text: string): Promise<void> {
   if (navigator.clipboard?.writeText) {
     return navigator.clipboard.writeText(text);
   }
