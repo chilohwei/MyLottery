@@ -15,6 +15,7 @@
 ## 技术栈
 
 - Next.js 16 (App Router, TypeScript)
+- OpenNext + Cloudflare Workers
 - Tailwind CSS 4 + shadcn/ui + Base UI
 - Clerk (Auth)
 - Supabase (Database + RPC)
@@ -52,6 +53,9 @@ npm run dev
 - `npm run build`：生产构建（含 TypeScript 检查）
 - `npm run start`：启动生产服务
 - `npm run lint`：项目 lint（当前 Next 16 下可能需按项目实际配置调整）
+- `npm run preview`：本地预览 Cloudflare Worker 构建
+- `npm run deploy`：构建并部署到 Cloudflare Workers
+- `npm run cf-typegen`：生成 Cloudflare 环境类型
 
 ## 数据结构与关键字段
 
@@ -85,8 +89,22 @@ npm run dev
 - 站点 Logo：Apple App Icon 风格 — 珊瑚玫瑰渐变底色 + 礼盒星芒图标（`BrandLogo` + `public/favicon.svg`）
 - 主题关键词：温暖、精致、惊喜感、清晰可控
 
-## 部署建议
+## 部署（Cloudflare Workers）
 
-- 平台：Vercel（推荐）
+### 1) 构建并本地预览
+
+```bash
+npm run preview
+```
+
+### 2) 部署到 Cloudflare
+
+```bash
+npm run deploy
+```
+
+### 3) 生产环境检查项
+
+- `wrangler.jsonc` 使用 `.open-next/worker.js` 与 `.open-next/assets`
 - 确保生产环境 Clerk / Supabase 环境变量完整
 - 若启用口令访问，建议结合服务端校验与访问日志策略
