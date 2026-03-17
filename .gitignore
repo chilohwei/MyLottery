@@ -54,6 +54,10 @@ next-env.d.ts
 
 # performance / profiling temp files
 .perf-*
+.real/
+memory/
+MEMORY.md
+pyproject.toml
 
 # OS metadata
 ._*
