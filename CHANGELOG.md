@@ -1,3 +1,8 @@
+## 0.1.3 - 2026-04-05
+
+### Fixes
+- 修复 Cloudflare 发布链路的构建器选择问题，显式指定 `bun run build`，避免 OpenNext 在本仓库误用 `npm run build`。
+
 ## 0.1.2 - 2026-04-05
 
 ### Fixes
