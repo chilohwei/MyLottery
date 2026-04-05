@@ -1,35 +1,8 @@
 "use client";
 
 import { LotteryView } from "@/components/shared/lottery-view";
-import { DEFAULT_RECIPIENT_AVATAR, type Lottery, type LotteryConfig } from "@/types/lottery";
-
-function migrateConfig(raw: Record<string, unknown>): LotteryConfig {
-  const c = raw;
-  let slides: string[];
-  if (Array.isArray(c.slides)) {
-    slides = (c.slides as string[]).slice(0, 3);
-  } else if (typeof c.greeting === "string" && c.greeting) {
-    slides = [c.greeting as string];
-  } else if (Array.isArray(c.introMessages)) {
-    slides = (c.introMessages as string[]).slice(0, 3);
-  } else {
-    slides = [];
-  }
-  return {
-    gameType: (c.gameType as LotteryConfig["gameType"]) ?? "wheel",
-    theme: (c.theme as LotteryConfig["theme"]) ?? "warm",
-    slides,
-    senderName: (c.senderName as string) ?? (c.contactPerson as string) ?? "",
-    senderAvatar: (c.senderAvatar as string) ?? (c.avatarUrl as string) ?? "",
-    recipientPhoto: (c.recipientPhoto as string) || DEFAULT_RECIPIENT_AVATAR,
-    gifts: (c.gifts as LotteryConfig["gifts"]) ?? (c.prizes as LotteryConfig["gifts"]) ?? [],
-    showPrizeList: (c.showPrizeList as boolean) ?? false,
-    allowRetry: (c.allowRetry as boolean) ?? false,
-    shareMode: (c.shareMode as LotteryConfig["shareMode"]) ?? ((c.shareEnabled as boolean) === false ? "closed" : "public"),
-    sharePasscode: (c.sharePasscode as string) ?? "",
-    decorEmojis: (c.decorEmojis as string[]) ?? (c.emojiList as string[]) ?? ["🎉", "🎊", "✨"],
-  };
-}
+import { migrateConfig } from "@/lib/migrate-config";
+import type { Lottery } from "@/types/lottery";
 
 export function PublicLotteryClient({ lottery }: { lottery: Lottery }) {
   const config = migrateConfig(lottery.config as unknown as Record<string, unknown>);

@@ -41,8 +41,9 @@ export default async function NewLotteryPage() {
     .select("id")
     .single();
 
-  if (error) {
-    throw new Error(`Failed to create lottery: ${error.message}`);
+  if (error || !data) {
+    console.error("Failed to create lottery:", error?.message ?? "no data returned");
+    throw new Error(`Failed to create lottery: ${error?.message ?? "unknown"}`);
   }
 
   redirect(`/lottery/${data.id}/edit`);

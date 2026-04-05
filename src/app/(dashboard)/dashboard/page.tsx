@@ -14,21 +14,28 @@ export default async function DashboardPage() {
   if (!userId) redirect("/sign-in");
 
   const supabase = createServerClient();
-  const { data: lotteries } = await supabase
+  const { data: lotteries, error: lotteriesErr } = await supabase
     .from("lotteries")
     .select("*")
     .eq("clerk_user_id", userId)
     .order("created_at", { ascending: false });
 
+  if (lotteriesErr) {
+    throw new Error(`Failed to load lotteries: ${lotteriesErr.message}`);
+  }
+
   const items = (lotteries ?? []) as Lottery[];
 
   const lotteryIds = items.map((l) => l.id);
-  let drawCounts: Record<string, number> = {};
+  const drawCounts: Record<string, number> = {};
   if (lotteryIds.length > 0) {
-    const { data: logs } = await supabase
+    const { data: logs, error: logsErr } = await supabase
       .from("prize_logs")
       .select("lottery_id")
       .in("lottery_id", lotteryIds);
+    if (logsErr) {
+      console.error("Failed to load draw counts:", logsErr.message);
+    }
     if (logs) {
       for (const log of logs) {
         drawCounts[log.lottery_id] = (drawCounts[log.lottery_id] ?? 0) + 1;

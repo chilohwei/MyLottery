@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import { Camera, Link2, User, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -19,14 +20,18 @@ export function PhotoUpload({ value, onChange, className, shape = "circle", comp
   const sizeClass = compact ? "w-14 h-14" : "w-20 h-20";
   const inputRef = useRef<HTMLInputElement>(null);
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [urlInputValue, setUrlInputValue] = useState("");
   const [dragOver, setDragOver] = useState(false);
 
   const shapeClass = shape === "circle" ? "rounded-full" : "rounded-xl";
 
   const handleFile = (file: File) => {
-    if (!file.type.startsWith("image/")) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("请选择图片文件");
+      return;
+    }
     if (file.size > MAX_FILE_SIZE) {
-      alert("图片不能超过 2MB");
+      toast.error("图片不能超过 2MB");
       return;
     }
     const reader = new FileReader();
@@ -111,8 +116,11 @@ export function PhotoUpload({ value, onChange, className, shape = "circle", comp
           </button>
           {showUrlInput && (
             <Input
-              value=""
-              onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
+              value={urlInputValue}
+              onChange={(e) => {
+                setUrlInputValue(e.target.value);
+                if (e.target.value) onChange(e.target.value);
+              }}
               placeholder="https://..."
               className="h-7 text-xs"
             />

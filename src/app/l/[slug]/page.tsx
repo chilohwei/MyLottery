@@ -22,7 +22,7 @@ export default async function PublicLotteryPage({
 
   const { data, error } = await supabase
     .from("lotteries")
-    .select("*")
+    .select("id, slug, title, status, config, view_count")
     .eq("slug", slug)
     .single();
 
@@ -50,19 +50,22 @@ export default async function PublicLotteryPage({
   }
 
   if (shareMode === "passcode" && code !== sharePasscode) {
-    return <PublicPasscodeGate slug={slug} />;
+    const hasAttempt = typeof code === "string";
+    return <PublicPasscodeGate slug={slug} error={hasAttempt} />;
   }
 
-  try {
-    await supabase.rpc("increment_view_count", { lottery_slug: slug });
-  } catch (error) {
-    console.error("increment_view_count failed", error);
+  const { error: rpcError } = await supabase.rpc("increment_view_count", { lottery_slug: slug });
+  if (rpcError) {
+    console.error("increment_view_count failed", rpcError);
   }
 
-  return <PublicLotteryClient lottery={lottery} />;
+  const { sharePasscode: _removed, ...safeConfig } = lottery.config ?? {};
+  const safeLottery = { ...lottery, config: safeConfig } as Lottery;
+
+  return <PublicLotteryClient lottery={safeLottery} />;
 }
 
-function PublicPasscodeGate({ slug }: { slug: string }) {
+function PublicPasscodeGate({ slug, error }: { slug: string; error?: boolean }) {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center gradient-warm px-4">
       <div className="w-full max-w-md rounded-2xl border border-white/60 bg-white/85 p-8 text-center shadow-xl backdrop-blur-sm">
@@ -72,16 +75,27 @@ function PublicPasscodeGate({ slug }: { slug: string }) {
           subtitle="该活动已开启口令保护，请向发起人获取口令后继续访问。"
           variant="centered"
         />
-        <form method="get" action={`/l/${slug}`} className="mt-6 flex gap-2">
-          <input
-            name="code"
-            type="text"
-            placeholder="访问口令"
-            className="h-10 flex-1 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-          />
-          <button type="submit" className={cn(buttonVariants(), "h-10 px-4 text-sm")}>
-            进入
-          </button>
+        <form method="get" action={`/l/${slug}`} className="mt-6 space-y-2">
+          <div className="flex gap-2">
+            <label htmlFor="passcode-input" className="sr-only">访问口令</label>
+            <input
+              id="passcode-input"
+              name="code"
+              type="text"
+              placeholder="访问口令"
+              autoFocus
+              className={cn(
+                "h-10 flex-1 rounded-lg border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring",
+                error ? "border-destructive" : "border-border",
+              )}
+            />
+            <button type="submit" className={cn(buttonVariants(), "h-10 px-4 text-sm")}>
+              进入
+            </button>
+          </div>
+          {error && (
+            <p className="text-xs text-destructive">口令不正确，请重新输入</p>
+          )}
         </form>
       </div>
     </div>

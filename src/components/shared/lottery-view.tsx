@@ -314,6 +314,10 @@ export function LotteryView({
           prize_text: gift.text,
           prize_icon: gift.icon,
         }),
+      }).then((res) => {
+        if (!res.ok) {
+          console.error(`Failed to log prize: ${res.status} ${res.statusText}`);
+        }
       }).catch((err) => {
         console.error("Failed to log prize", err);
       });

@@ -33,6 +33,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { GiftEditor } from "@/components/editor/gift-editor";
 import { PhotoUpload } from "@/components/editor/photo-upload";
 import { LotteryPreview } from "@/components/editor/lottery-preview";
+import { migrateConfig } from "@/lib/migrate-config";
 import type { Lottery, LotteryConfig } from "@/types/lottery";
 import { DEFAULT_RECIPIENT_AVATAR, GAME_TYPES, LOTTERY_THEMES } from "@/types/lottery";
 
@@ -42,59 +43,14 @@ interface EditorFormProps {
   lottery: Lottery;
 }
 
-const DEFAULT_SLIDES = ["这是我为你准备的一份小惊喜\n愿你收到时，刚好有一点开心"];
-const DEFAULT_GIFTS = [
-  { text: "影视会员年卡", icon: "🎬" },
-  { text: "电影票 2 张", icon: "🎟️" },
-  { text: "红包 188 元", icon: "💸" },
-  { text: "请吃一顿大餐", icon: "🍰" },
-];
 const SHARE_MODE_OPTIONS = [
   { value: "public", label: "公开访问", desc: "拿到链接即可参与" },
   { value: "passcode", label: "口令访问", desc: "需输入口令后访问" },
   { value: "closed", label: "关闭访问", desc: "链接暂不可访问" },
 ] as const;
 
-function migrateConfig(raw: Record<string, unknown>): LotteryConfig {
-  const c = raw as Record<string, unknown>;
-  let slides: string[];
-  if (Array.isArray(c.slides)) {
-    slides = c.slides as string[];
-  } else if (typeof c.greeting === "string" && c.greeting) {
-    slides = [c.greeting as string];
-  } else if (Array.isArray(c.introMessages)) {
-    slides = c.introMessages as string[];
-  } else {
-    slides = [];
-  }
-  if (slides.length === 0) {
-    slides = [...DEFAULT_SLIDES];
-  }
-  slides = slides.slice(0, 3);
-
-  const parsedGifts = (c.gifts as LotteryConfig["gifts"]) ?? (c.prizes as LotteryConfig["gifts"]) ?? [];
-  const gifts = parsedGifts.length > 0
-    ? parsedGifts
-    : DEFAULT_GIFTS.map((g) => ({ id: crypto.randomUUID(), text: g.text, icon: g.icon, probability: undefined }));
-
-  return {
-    gameType: (c.gameType as LotteryConfig["gameType"]) ?? "wheel",
-    theme: (c.theme as LotteryConfig["theme"]) ?? "warm",
-    slides,
-    senderName: (c.senderName as string) ?? (c.contactPerson as string) ?? "",
-    senderAvatar: (c.senderAvatar as string) ?? (c.avatarUrl as string) ?? "",
-    recipientPhoto: (c.recipientPhoto as string) || DEFAULT_RECIPIENT_AVATAR,
-    gifts,
-    showPrizeList: (c.showPrizeList as boolean) ?? false,
-    allowRetry: (c.allowRetry as boolean) ?? false,
-    shareMode: (c.shareMode as LotteryConfig["shareMode"]) ?? ((c.shareEnabled as boolean) === false ? "closed" : "public"),
-    sharePasscode: (c.sharePasscode as string) ?? "",
-    decorEmojis: (c.decorEmojis as string[]) ?? (c.emojiList as string[]) ?? ["🎉", "🎊", "✨"],
-  };
-}
-
 export function EditorForm({ lottery }: EditorFormProps) {
-  const [config, setConfig] = useState<LotteryConfig>(() => migrateConfig(lottery.config as unknown as Record<string, unknown>));
+  const [config, setConfig] = useState<LotteryConfig>(() => migrateConfig(lottery.config as unknown as Record<string, unknown>, { fillDefaults: true }));
   const [title, setTitle] = useState(lottery.title || "我的抽奖活动");
   const [status, setStatus] = useState(lottery.status);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -657,21 +613,6 @@ function RequiredMark() {
 
 function OptionalTag() {
   return <span className="text-[10px] text-muted-foreground font-normal ml-1 px-1.5 py-0.5 rounded bg-muted/70">可选</span>;
-}
-
-function getShareModeLabel(mode: LotteryConfig["shareMode"]) {
-  switch (mode) {
-    case "public":
-      return "公开访问";
-    case "passcode":
-      return "口令访问";
-    case "closed":
-      return "关闭访问";
-    default: {
-      const _exhaustiveCheck: never = mode;
-      throw new Error(`Unhandled share mode: ${_exhaustiveCheck}`);
-    }
-  }
 }
 
 function SaveIndicator({ status }: { status: SaveStatus }) {

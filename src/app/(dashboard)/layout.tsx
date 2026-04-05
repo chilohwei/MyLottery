@@ -2,7 +2,6 @@ import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/sonner";
 
 export default function DashboardLayout({
   children,
@@ -20,7 +19,6 @@ export default function DashboardLayout({
       <main className="flex-1 overflow-auto px-4 sm:px-6 py-5 sm:py-7">
         <TooltipProvider>{children}</TooltipProvider>
       </main>
-      <Toaster />
     </div>
   );
 }

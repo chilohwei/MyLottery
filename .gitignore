@@ -59,5 +59,8 @@ memory/
 MEMORY.md
 pyproject.toml
 
+# supabase
+supabase/.temp/
+
 # OS metadata
 ._*

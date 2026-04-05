@@ -7,11 +7,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const body = await req.json();
 
-  const { prize } = body as {
-    prize: string;
-  };
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const { prize, code } = body as { prize: string; code?: string };
 
   if (!prize) {
     return NextResponse.json(
@@ -21,8 +25,8 @@ export async function POST(
   }
 
   const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     req.headers.get("cf-connecting-ip") ??
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     null;
   const userAgent = req.headers.get("user-agent") ?? null;
 
@@ -56,6 +60,16 @@ export async function POST(
       { error: "Lottery sharing is closed" },
       { status: 403 },
     );
+  }
+
+  if (shareMode === "passcode") {
+    const sharePasscode = (config.sharePasscode as string) ?? "";
+    if (!code || code !== sharePasscode) {
+      return NextResponse.json(
+        { error: "Invalid passcode" },
+        { status: 403 },
+      );
+    }
   }
 
   const gifts = Array.isArray(config.gifts)

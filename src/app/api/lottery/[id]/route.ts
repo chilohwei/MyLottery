@@ -12,7 +12,13 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const body = await req.json();
+
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
   const supabase = createServerClient();
 
@@ -21,14 +27,16 @@ export async function PATCH(
   if (body.config !== undefined) allowed.config = body.config;
   if (body.status !== undefined) allowed.status = body.status;
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("lotteries")
     .update(allowed)
     .eq("id", id)
-    .eq("clerk_user_id", userId);
+    .eq("clerk_user_id", userId)
+    .select("id")
+    .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !data) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   return NextResponse.json({ ok: true });
@@ -46,14 +54,16 @@ export async function DELETE(
   const { id } = await params;
   const supabase = createServerClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("lotteries")
     .delete()
     .eq("id", id)
-    .eq("clerk_user_id", userId);
+    .eq("clerk_user_id", userId)
+    .select("id")
+    .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error || !data) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
   return NextResponse.json({ ok: true });
