@@ -106,6 +106,36 @@ npm run deploy
 ### 3) 生产环境检查项
 
 - `wrangler.jsonc` 使用 `.open-next/worker.js` 与 `.open-next/assets`
-- 当前 Cloudflare 兼容方案使用 `src/middleware.ts`（`proxy.ts` 在 Workers 上会触发 Node middleware 不兼容）
+- 当前项目已切换到 Next 16 推荐的 `src/proxy.ts`
 - 确保生产环境 Clerk / Supabase 环境变量完整
 - 若启用口令访问，建议结合服务端校验与访问日志策略
+
+## 捐赠
+
+如果这个项目对你有帮助，欢迎请我喝杯咖啡 ☕
+
+👉 [捐赠页面](https://donate.chiloh.com)
+
+### 扫码支付
+
+<table>
+  <tr>
+    <td align="center"><b>微信支付</b></td>
+    <td align="center"><b>支付宝</b></td>
+    <td align="center"><b>PayPal</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="https://donate.chiloh.com/img/wechat.webp" width="200" alt="WeChat Pay" /></td>
+    <td align="center"><img src="https://donate.chiloh.com/img/alipay.webp" width="200" alt="Alipay" /></td>
+    <td align="center"><img src="https://donate.chiloh.com/img/paypal.webp" width="200" alt="PayPal" /></td>
+  </tr>
+</table>
+
+### 加密货币
+
+| 币种 | 网络 | 地址 |
+|------|------|------|
+| **BTC** | Bitcoin SegWit | `bc1qpqchzes0wrhtg5h2rwvh3f6tf5weljetx2adun` |
+| **EVM** | ETH / BSC / Polygon / Arb / OP / Base | `0x797A13aB0398eef748cF6D8C518b0803a14918b1` |
+| **USDT** | TRC-20 (Tron) | `TQeEKzMRvAUXEU5tsiPR1GX8WUHdhKUhwg` |
+| **SOL** | Solana (SOL & USDT SPL) | `GXTtMhJvbpmdrqSz5x65Hzd6wia5YYwaHdnxCB3PC1HY` |

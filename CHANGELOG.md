@@ -1,3 +1,12 @@
+## 0.1.5 - 2026-04-05
+
+### Changed
+- 将 Clerk 认证入口从 `src/middleware.ts` 迁移到 `src/proxy.ts`，对齐 Next 16 的推荐约定，减少发布时的框架告警。
+
+### Documentation
+- 在 README 中新增捐赠章节，补充扫码支付与加密货币赞赏方式。
+- 同步更新 Cloudflare 部署说明，移除过时的 `middleware.ts` 说明。
+
 ## 0.1.4 - 2026-04-05
 
 ### Fixes
