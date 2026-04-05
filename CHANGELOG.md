@@ -1,3 +1,8 @@
+## 0.1.4 - 2026-04-05
+
+### Fixes
+- 回退 `open-next.config.ts` 中不兼容当前类型定义的发布配置，恢复可通过 TypeScript 构建检查的 Cloudflare 发布链路。
+
 ## 0.1.3 - 2026-04-05
 
 ### Fixes
