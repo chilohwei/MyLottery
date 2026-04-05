@@ -1,3 +1,9 @@
+## 0.1.6 - 2026-04-05
+
+### Fixes
+- 回滚到 `src/middleware.ts`，修复 Cloudflare/OpenNext 部署阶段对 Node middleware 不兼容导致的发版失败。
+- 保留 README 的捐赠章节，并恢复与实际部署方案一致的中间件说明。
+
 ## 0.1.5 - 2026-04-05
 
 ### Changed

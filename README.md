@@ -106,7 +106,7 @@ npm run deploy
 ### 3) 生产环境检查项
 
 - `wrangler.jsonc` 使用 `.open-next/worker.js` 与 `.open-next/assets`
-- 当前项目已切换到 Next 16 推荐的 `src/proxy.ts`
+- 当前 Cloudflare 兼容方案使用 `src/middleware.ts`（`proxy.ts` 在 Workers 上会触发 Node middleware 不兼容）
 - 确保生产环境 Clerk / Supabase 环境变量完整
 - 若启用口令访问，建议结合服务端校验与访问日志策略
 
