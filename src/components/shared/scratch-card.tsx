@@ -32,11 +32,14 @@ export function ScratchCard({
   const [revealed, setRevealed] = useState(false);
   const scratchingRef = useRef(false);
   const onResultRef = useRef(onResult);
-  onResultRef.current = onResult;
   const revealedRef = useRef(false);
   const winGiftRef = useRef<Gift | null>(null);
   const lastPosRef = useRef<{ x: number; y: number } | null>(null);
   const strokeCountRef = useRef(0);
+
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
 
   const initCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -73,6 +76,8 @@ export function ScratchCard({
     if (gifts.length === 0) return;
     const wi = Math.floor(Math.random() * gifts.length);
     const g = gifts[wi];
+    // Initialize the scratch-card result when the available gifts change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setWinGift(g);
     winGiftRef.current = g;
     initCanvas();

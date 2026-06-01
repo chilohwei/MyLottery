@@ -36,9 +36,14 @@ export function FlipCards({
   const [winGift, setWinGift] = useState<Gift | null>(null);
   const [shuffledGifts, setShuffledGifts] = useState<Gift[]>(() => [...gifts]);
   const onResultRef = useRef(onResult);
-  onResultRef.current = onResult;
 
   useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
+
+  useEffect(() => {
+    // Reset local animation state when the available gifts change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShuffledGifts([...gifts]);
     setFlippedIdx(null);
     setWinGift(null);

@@ -30,7 +30,10 @@ export function SpinWheel({ gifts, allowRetry = false, interactive = false, onRe
   const animRef = useRef<number>(0);
   const rotationRef = useRef(0);
   const onResultRef = useRef(onResult);
-  onResultRef.current = onResult;
+
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
 
   useEffect(() => {
     const el = wrapRef.current;
