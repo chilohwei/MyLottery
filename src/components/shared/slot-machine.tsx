@@ -29,7 +29,10 @@ export function SlotMachine({
   const [reelOffsets, setReelOffsets] = useState([0, 0, 0]);
   const [resultGift, setResultGift] = useState<Gift | null>(null);
   const onResultRef = useRef(onResult);
-  onResultRef.current = onResult;
+
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
 
   const buildReel = useCallback(() => {
     if (gifts.length === 0) return [];
@@ -45,6 +48,8 @@ export function SlotMachine({
   const reelWidth = reelCount <= 2 ? REEL_W + 12 : REEL_W;
 
   useEffect(() => {
+    // Reset local reel positions when the number of visible reels changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReelOffsets(Array.from({ length: reelCount }).map(() => 0));
   }, [reelCount]);
 

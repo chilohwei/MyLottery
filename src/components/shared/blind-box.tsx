@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import type { Gift } from "@/types/lottery";
 
@@ -24,7 +24,10 @@ export function BlindBox({
   const [state, setState] = useState<"idle" | "shaking" | "opened">("idle");
   const [winGift, setWinGift] = useState<Gift | null>(null);
   const onResultRef = useRef(onResult);
-  onResultRef.current = onResult;
+
+  useEffect(() => {
+    onResultRef.current = onResult;
+  }, [onResult]);
 
   const open = useCallback(() => {
     if (!interactive || state !== "idle" || gifts.length === 0) return;
